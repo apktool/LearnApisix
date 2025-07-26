@@ -8,7 +8,8 @@ from canary.util import get_service_ip_port
 
 server_host = "0.0.0.0"
 server_port = 8001
-service_id = "app-demo-normal"
+instance_name = "app-instance"
+service_name = "canary"
 
 router = APIRouter(prefix="/api/canary/v1", tags=["api"])
 
@@ -17,9 +18,9 @@ router = APIRouter(prefix="/api/canary/v1", tags=["api"])
 async def lifespan(app: FastAPI):
     ip = get_service_ip_port()
     port = server_port
-    await register_consul_service(host=ip, port=port, service_id=service_id)
+    await register_consul_service(host=ip, port=port, service_name=service_name, instance_name=instance_name)
     yield
-    await unregister_consul_service(service_id=service_id)
+    await unregister_consul_service(instance_name=instance_name)
 
 
 @router.get("/")

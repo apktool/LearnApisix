@@ -4,15 +4,13 @@ from consul.check import Check
 from canary.config import consul_host, consul_port
 from canary.logger_setup import logger
 
-service_name = "app-demo"
-
 
 async def _get_available_consul_services():
     cs = Consul(host=consul_host, port=consul_port)
     return cs
 
 
-async def register_consul_service(host: str, port: int, service_id: str):
+async def register_consul_service(host: str, port: int, service_name: str, instance_name: str):
     check = Check.tcp(
         host=host,
         port=port,
@@ -26,19 +24,22 @@ async def register_consul_service(host: str, port: int, service_id: str):
     try:
         response = await cs.agent.service.register(
             name=service_name,
-            service_id=service_id,
+            address=host,
+            port=port,
+            service_id=instance_name,
             check=check,
-            tags=["grpc"]
+            tags=["http", "grpc"]
         )
-        logger.debug(f"registered successfully, service_id={service_id}, response={response}")
+        logger.debug(
+            f"registered successfully, service_name={service_name}, service_id={instance_name}, response={response}")
     except Exception as e:
-        logger.exception(f"failed to register service_id={service_id}: {e}")
+        logger.exception(f"failed to register service_id={service_name}, service_id={instance_name}: {e}")
 
 
-async def unregister_consul_service(service_id: str):
+async def unregister_consul_service(instance_name: str):
     cs = await _get_available_consul_services()
     try:
-        response = await cs.agent.service.deregister(service_id=service_id)
-        logger.debug(f"unregistered successfully, service_id={service_id}, response={response}")
+        response = await cs.agent.service.deregister(service_id=instance_name)
+        logger.debug(f"unregistered successfully, service_id={instance_name}, response={response}")
     except Exception as e:
-        logger.exception(f"failed to unregister service_id={service_id}: {e}")
+        logger.exception(f"failed to unregister service_id={instance_name}: {e}")
