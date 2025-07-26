@@ -85,7 +85,46 @@ function _M.nodes(service_name)
         return
     end
 
-    local resp_list = all_services[service_name]
+    log.info("all_services: ", json_delay_encode(all_services, true))
+
+    local api_ctx = ngx.ctx.api_ctx
+    local up_conf = api_ctx.matched_upstream
+    local scheme = up_conf.scheme
+
+    local uri = ngx.var.uri
+    local version = tostring(ngx.req.http_version())
+    log.info("discovery_type=", up_conf.discovery_type, ", version=", version, ", scheme=", scheme, ", uri=", uri)
+
+    log.info("before rewrite, service_name=", service_name)
+
+    if version == "1.1" then
+        service_name = uri:match("/api/(.*)/v")
+    elseif version == "2" then
+        local pos = uri:find("%.")
+        service_name = uri:sub(2, pos - 1)
+    else
+        log.error("unknown http version: ", version)
+    end
+
+    local gray = ngx.req.get_headers()["X-API-GRAY"]
+    if gray == "true" then
+        local gray_service_name = service_name .. "-gray"
+        if all_services[gray_service_name] ~= nil then
+            service_name = gray_service_name
+        else
+            log.warn("gray service not found, gray_service_name is ", gray_service_name)
+        end
+    end
+
+    log.info("after rewrite, service_name=", service_name)
+
+    local resp_list_all = all_services[service_name]
+    local resp_list = {}
+    for _, instance in pairs(resp_list_all) do
+        if instance.scheme == scheme then
+            resp_list = { instance }
+        end
+    end
 
     if not resp_list then
         log.error("fetch nodes failed by ", service_name, ", return default service")
@@ -515,6 +554,16 @@ function _M.connect(premature, consul_server, retry_delay)
                         goto CONTINUE
                     end
 
+                    local scheme = "http"
+                    local meta = node.Service.Meta
+                    if meta then
+                        if meta["scheme"] then
+                            scheme = meta["scheme"]
+                        end
+                    else
+                        log.warn("not found meta in consul service")
+                    end
+
                     local svc_address, svc_port = node.Service.Address, node.Service.Port
                     -- if nodes is nil, new nodes table and set to up_services
                     if not nodes then
@@ -529,6 +578,7 @@ function _M.connect(premature, consul_server, retry_delay)
                             host = svc_address,
                             port = tonumber(svc_port),
                             weight = default_weight,
+                            scheme= scheme,
                         })
                         nodes_uniq[service_id] = true
                     end
@@ -606,7 +656,7 @@ end
 
 
 function _M.init_worker()
-    local consul_conf = local_conf.discovery.consul
+    local consul_conf = local_conf.discovery.smart_consul
 
     if consul_conf.dump then
         local dump = consul_conf.dump
@@ -669,7 +719,7 @@ end
 
 
 function _M.dump_data()
-    return {config = local_conf.discovery.consul, services = all_services }
+    return {config = local_conf.discovery.smart_consul, services = all_services }
 end
 
 

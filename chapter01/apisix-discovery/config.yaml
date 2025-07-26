@@ -1,0 +1,48 @@
+apisix:
+  node_listen:
+    - port: 9080
+    - port: 9081
+  enable_admin: true
+  enable_dev_mode: true
+  enable_http2: true
+
+nginx_config:
+  error_log: logs/error.log
+  error_log_level: info             # 可以把 apisix 服务本身的日志打印出来
+  http:
+    enable_access_log: true         # 把 http 访问请求日志打印出来
+    access_log: logs/access.log
+    access_log_format: "$remote_addr - $remote_user [$time_local] $http_host \"$request\" $status $body_bytes_sent $request_time \"$http_referer\" \"$http_user_agent\" $upstream_addr $upstream_status $upstream_response_time \"$upstream_scheme://$upstream_host$upstream_uri\""
+
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+  etcd:
+    prefix: /apisix
+    host:
+      - http://172.17.0.2:2379
+  admin:
+    admin_key:
+      - name: admin
+        key: edd1c9f034335f136f87ad84b625c8f1
+        role: admin
+    admin_listen:
+      ip: 0.0.0.0
+      port: 9180
+
+discovery:
+  smart_consul:
+    servers:
+      - http://localhost:8500        # consul 的访问地址
+    timeout:
+      connect: 2000
+      read: 2000
+      wait: 60
+    weight: 1
+    fetch_interval: 3
+    keepalive: true
+    dump:
+      path: logs/smart_consul.dump
+      expire: 2592000
+      load_on_init: true
