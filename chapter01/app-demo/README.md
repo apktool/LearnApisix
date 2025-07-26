@@ -22,3 +22,9 @@ curl -X GET http://localhost:8001/api/canary/v1/
 # 访问灰度服务
 curl -X GET http://localhost:8002/api/canary/v1/
 ```
+
+# 更新 grpc 接口
+
+```bash
+python3 -m grpc_tools.protoc -Icanary=. --python_out=. --pyi_out=. --grpc_python_out=. canary.proto
+```

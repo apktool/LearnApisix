@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package canary;
+
+service CanaryService {
+  rpc add (Request) returns (Response);
+}
+
+message Request {
+  string name = 1;
+}
+
+message Response {
+  int64 code = 1;
+  string message = 2;
+}
